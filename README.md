@@ -15,7 +15,7 @@ Together, these parts create a responsive system that waters a plant only when i
 | Sensor Type      | Measurement Principle                    | Advantages                  | Limitations                                    |
 |------------------|------------------------------------------|-----------------------------|------------------------------------------------|
 | Capacitive       | Measures dielectric constant of the soil | Durable, accurate           | Sensitive to nearby objects and interference   |
-| Resistive        | Measures electrical resistance           | Cheap, easy to use          | Corrodes over time                             |
+| Resistive        | Measures electrical resistance           | Cheap, easy to use          | Corrodes over time (potentially toxic)         |
 
 In addition to resistive and capacitive sensors, there are more advanced methods used in agriculture and research, such as tensiometers, Time Domain Reflectometry or Frequency Domain Reflectometry TDR/FDR sensors, and thermal or capillary-based systems. These offer higher accuracy or different measurement principles (like soil water tension) but are often more complex or expensive.
 
@@ -67,6 +67,36 @@ For this workshop, we have these available:
 - Regular microcontroller-ready relay modules
 - MOSFET (IRLB8721PbF) suitable for switching upt to 24V DC and 10A (Wiring example check [here](https://learn.adafruit.com/rgb-led-strips/usage))
 
+**Example script switching a GPIO output on and off**
+
+```python
+import machine
+import time
+
+# Set the pump control pin
+PUMP_PIN = 15  # Use GPIO15, change if needed
+pump = machine.Pin(PUMP_PIN, machine.Pin.OUT)
+
+def pump_on():
+    pump.value(1)  # Set pin HIGH to turn pump ON
+    print("Pump ON")
+
+def pump_off():
+    pump.value(0)  # Set pin LOW to turn pump OFF
+    print("Pump OFF")
+
+# Simple test sequence
+while True:
+    print("Turning pump ON for 3 seconds...")
+    pump_on()
+    time.sleep(3)
+        
+    print("Turning pump OFF for 3 seconds...")
+    pump_off()
+    time.sleep(3)
+
+```
+
 
 ## Reading Sensor Data
 
@@ -78,7 +108,8 @@ soil = ADC(Pin(26))
 
 while True:
   soil_value = soil.read_u16() # read value, 0-65535 across voltage range 0.0v - 3.3v
-  print((soil_value/65535)*3.3)
+  soil_voltage = (soil_value/65535)*3.3
+  print(soil_voltage) 
   sleep(1)
 
 ```
@@ -88,4 +119,14 @@ while True:
 
 
 ## Similar Projects
-- https://www.thingiverse.com/thing:4921885
+
+### Self-Watering Flower Pot "Flaura"
+This 3D-printable self-watering flower pot project integrates a soil moisture sensor, a microcontroller (ESP8266), and a small water pump to automate plant care. It also includes a mobile app interface using Blynk, allowing users to monitor soil moisture and trigger manual watering remotely.
+
+https://www.thingiverse.com/thing:4921885
+
+
+### Watering System without microcontroller
+This project builds a simple automatic plant watering system without using a microcontroller. It uses soil probes to detect moisture, a BC547 transistor to trigger a relay, and a small water pump. When the soil is dry, the pump automatically turns on; when the soil is wet, it turns off. It's a low-cost solution with no programming required.
+
+https://circuitdigest.com/electronic-circuits/automatic-plant-watering-system-without-arduino

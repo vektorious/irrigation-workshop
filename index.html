@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Soil Moisture WebSocket Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5/build/vega.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5/build/vega-lite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6/build/vega-embed.min.js"></script>
+</head>
+<body>
+    <h1>Soil Moisture Graph</h1>
+
+    <div id="chart" style="width: 50%; height: 400px;"></div>
+
+    <h2>Last 5 Readings:</h2>
+    <table border="1" id="last-values" style="width: 50%; text-align: center;">
+        <thead>
+            <tr><th>Time</th><th>Moisture (%)</th></tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        const dataPoints = [];
+        const maxPoints = 100;
+        const lastValuesTable = document.getElementById('last-values').getElementsByTagName('tbody')[0];
+
+        const ws = new WebSocket('ws://' + location.host);
+
+        ws.onopen = () => console.log("WebSocket opened!");
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const timestamp = new Date();
+            const value = data.moisture;
+
+            dataPoints.push({ timestamp: timestamp, value: value });
+            if (dataPoints.length > maxPoints) dataPoints.shift();
+
+            updateLastValues(timestamp, value);
+            drawChart();
+        };
+        ws.onerror = (err) => console.error("WebSocket error", err);
+        ws.onclose = () => console.log("WebSocket closed");
+
+        function drawChart() {
+            vegaEmbed('#chart', {
+                "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                "description": "Soil Moisture Over Time",
+                "width": "container",
+                "height": 300,
+                "data": { "values": dataPoints },
+                "mark": "line",
+                "encoding": {
+                    "x": { "field": "timestamp", "type": "temporal", "title": "Time" },
+                    "y": { "field": "value", "type": "quantitative", "title": "Moisture Value" }
+                }
+            }, { actions: false });
+        }
+
+        function updateLastValues(timestamp, value) {
+            const row = document.createElement('tr');
+            const timeCell = document.createElement('td');
+            const valueCell = document.createElement('td');
+
+            timeCell.textContent = timestamp.toLocaleTimeString();
+            valueCell.textContent = value.toFixed(2);
+
+            row.appendChild(timeCell);
+            row.appendChild(valueCell);
+            lastValuesTable.appendChild(row);
+
+            // Only keep last 5 rows
+            while (lastValuesTable.rows.length > 5) {
+                lastValuesTable.deleteRow(0);
+            }
+        }
+    </script>
+</body>
+</html>
+
