@@ -75,6 +75,10 @@ NOTE: Pico AND MOSFET/Pump Power Source MUST HAVE THE SAME GROUND!!
 
 ## Setup and Code
 
+### Wiring the components
+
+![image](fritzing_circuit_bb.png)
+
 ### Switch GPIO output on and off
 
 ```python
@@ -137,3 +141,7 @@ https://www.thingiverse.com/thing:4921885
 This project builds a simple automatic plant watering system without using a microcontroller. It uses soil probes to detect moisture, a BC547 transistor to trigger a relay, and a small water pump. When the soil is dry, the pump automatically turns on; when the soil is wet, it turns off. It's a low-cost solution with no programming required.
 
 https://circuitdigest.com/electronic-circuits/automatic-plant-watering-system-without-arduino
+
+### xx
+
+https://www.elecrow.com/smart-plant.html
