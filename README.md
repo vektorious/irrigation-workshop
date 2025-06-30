@@ -77,7 +77,7 @@ NOTE: Pico AND MOSFET/Pump Power Source MUST HAVE THE SAME GROUND!!
 
 ### Wiring the components
 
-![image](fritzing_circuit_bb.png)
+![image](img/fritzing_circuit_bb.png)
 
 ### Switch GPIO output on and off
 
@@ -125,6 +125,69 @@ while True:
 
 ```
 
+### Test LED strips
+
+```python
+
+import machine
+import neopixel
+import time
+
+# Configuration
+NUM_LEDS = 10
+PIN = 1
+BRIGHTNESS = 100  # 0–255
+
+np = neopixel.NeoPixel(machine.Pin(PIN), NUM_LEDS)
+
+# Helper: apply brightness to RGB
+def scale_color(r, g, b, brightness):
+    factor = brightness / 255
+    return int(r * factor), int(g * factor), int(b * factor)
+
+# Helper: turn off all LEDs
+def clear_strip():
+    for i in range(NUM_LEDS):
+        np[i] = (0, 0, 0)
+    np.write()
+
+# List of colors to cycle through
+colors = [
+    (255, 0, 0),   # Red
+    (0, 255, 0),   # Green
+    (0, 0, 255)    # Blue
+]
+
+# Main running light loop
+try:
+    color_index = 0
+    while True:
+        r, g, b = colors[color_index]
+        r, g, b = scale_color(r, g, b, BRIGHTNESS)
+
+        # Forward direction
+        for i in range(NUM_LEDS):
+            clear_strip()
+            np[i] = (r, g, b)
+            np.write()
+            time.sleep(0.1)
+
+        # Backward direction
+        for i in range(NUM_LEDS - 2, 0, -1):
+            clear_strip()
+            np[i] = (r, g, b)
+            np.write()
+            time.sleep(0.1)
+
+        # Next color
+        color_index = (color_index + 1) % len(colors)
+
+except KeyboardInterrupt:
+    clear_strip()
+    print("Running light stopped.")
+
+
+```
 
 ## Interfaces
 
