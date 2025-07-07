@@ -1,10 +1,11 @@
-# Irrigation Workshop
+   # Irrigation Workshop
 
 ## Introduction
-In this workshop, we will build an automated plant watering system. It will consist of three key components:
+In this workshop, we will build an automated plant watering system. It will consist of four key components:
 1. Sensor – measures soil moisture
 2. Pump – delivers water to the plant
 3. Controller – reads sensor data and controls the pump
+4. Interface – let's you control and monitor the system
 
 Together, these parts create a responsive system that waters a plant only when it needs it.
 
@@ -71,6 +72,12 @@ While the pumps used in this setup typically draw far less current (around 500�
 (Wiring example check [here](https://learn.adafruit.com/rgb-led-strips/usage)) 
 
 NOTE: Pico AND MOSFET/Pump Power Source MUST HAVE THE SAME GROUND!!
+
+### Adding an LED strip as part of the interface
+
+As part of this workshop, we held an open design session with some of the participants before the hands-on activities began. One of their suggestions was to add an LED strip with 10 individually controllable LEDs to visualize the soil moisture level.
+
+We use a WS2812B (NeoPixel-compatible) LED strip, which allows for precise color and brightness control using a single data pin from the microcontroller. 
 
 
 ## Setup and Code
@@ -189,6 +196,92 @@ except KeyboardInterrupt:
 
 ```
 
+### Test all Hardware
+
+```python
+import machine
+import neopixel
+import time
+
+# === Configuration ===
+ADC_PIN = 26               # GP26 = ADC0
+NEOPIXEL_PIN = 1           # GP1
+NUM_LEDS = 10
+BRIGHTNESS = 0.2           # Scale 0–1
+
+PUMP_PIN = 15              # GP15 for pump
+MOISTURE_THRESHOLD = 30.0  # in percent
+PUMP_DURATION = 1          # in seconds
+
+MAX_VOLTAGE = 3.0          # Voltage at driest
+MIN_VOLTAGE = 0.5          # Voltage at wettest
+
+# === Setup ===
+adc = machine.ADC(ADC_PIN)
+np = neopixel.NeoPixel(machine.Pin(NEOPIXEL_PIN), NUM_LEDS)
+
+pump = machine.Pin(PUMP_PIN, machine.Pin.OUT)
+pump.value(0)  # Ensure pump is off
+
+# === Helper Functions ===
+
+def read_voltage():
+    raw = adc.read_u16()  # Range: 0–65535
+    voltage = (raw / 65535) * 3.3
+    return voltage
+
+def map_voltage_to_percent(voltage):
+    voltage = max(min(voltage, MAX_VOLTAGE), MIN_VOLTAGE)
+    percent = (MAX_VOLTAGE - voltage) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100
+    return round(percent, 1)
+
+def get_color(percent):
+    if percent <= 30:
+        return (255, 0, 0)         # Red
+    elif percent <= 50:
+        return (255, 180, 0)       # Yellow
+    else:
+        return (0, 255, 0)         # Green
+
+def show_leds(percent):
+    leds_on = round(percent / 100 * NUM_LEDS)
+    color = get_color(percent)
+    for i in range(NUM_LEDS):
+        np[i] = color if i < leds_on else (0, 0, 0)
+    np.write()
+
+# === Main Loop ===
+COOLDOWN = 5  # seconds to wait before retrying pump
+
+try:
+    while True:
+        voltage = read_voltage()
+        percent = map_voltage_to_percent(voltage)
+        print("Moisture: {:.1f}% (Voltage: {:.2f} V)".format(percent, voltage))
+        
+        show_leds(percent)
+
+        if percent < MOISTURE_THRESHOLD:
+            print("Moisture below threshold — starting pump.")
+            pump.value(1)
+            time.sleep(PUMP_DURATION)
+            pump.value(0)
+            print("Pump stopped.")
+            print("Waiting for moisture to improve...")
+            time.sleep(COOLDOWN)
+        else:
+            time.sleep(1)
+
+except KeyboardInterrupt:
+    print("Stopped by user.")
+    pump.value(0)
+    for i in range(NUM_LEDS):
+        np[i] = (0, 0, 0)
+    np.write()
+
+
+```
+
 ## Interfaces
 
 
@@ -205,6 +298,8 @@ This project builds a simple automatic plant watering system without using a mic
 
 https://circuitdigest.com/electronic-circuits/automatic-plant-watering-system-without-arduino
 
-### xx
+### Elecrow Smart Plant
+
+A compact IoT plant monitor built around an ESP32‑S2 microcontroller, featuring a built‑in capacitive soil moisture probe, ambient light and air temperature/humidity sensors, and an optional 2.9″ e‑paper display for live data. It streams data over Wi‑Fi (compatible with Home Assistant via ESPHome) and is ideal for visualizing plant health, though it does not include a pump or watering system
 
 https://www.elecrow.com/smart-plant.html
