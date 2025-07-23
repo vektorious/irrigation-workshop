@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plant Monitor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 900px;
+      padding: 2em;
+      margin: auto;
+    }
+    h1, h2 {
+      margin-top: 1.5em;
+    }
+    #chart {
+      width: 100%;
+      max-width: 100%;
+      height: 300px;
+      margin-bottom: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2em;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 0.5em;
+      text-align: center;
+    }
+    input[type="number"], input[type="text"], select {
+      width: 100%;
+      padding: 0.4em;
+    }
+    label {
+      font-weight: bold;
+    }
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1em;
+    }
+    form div.full {
+      grid-column: span 2;
+    }
+    button {
+      padding: 0.5em 1em;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌱 Plant Monitoring Dashboard</h1>
+  <p><strong>Last pump:</strong> <span id="last-pump">–</span></p>
+
+  <div id="chart">Loading chart...</div>
+
+  <h2>Last Pump Activations</h2>
+  <table>
+    <thead><tr><th>Timestamp</th></tr></thead>
+    <tbody id="pump-history"></tbody>
+  </table>
+
+  <h2>Manual Actions</h2>
+  <button onclick="manualPump()">Start Pump Manually</button>
+
+  <h2>Configuration</h2>
+  <form id="config-form">
+    <div>
+      <label>Moisture Threshold (%)</label>
+      <input type="number" step="0.1" name="moisture_threshold">
+    </div>
+    <div>
+      <label>Pump Duration (seconds)</label>
+      <input type="number" step="0.1" name="pump_duration">
+    </div>
+    <div>
+      <label>LED Brightness (0–1)</label>
+      <input type="number" step="0.1" name="led_brightness">
+    </div>
+    <div>
+      <label>Low Threshold (%)</label>
+      <input type="number" name="low_threshold">
+    </div>
+    <div>
+      <label>Medium Threshold (%)</label>
+      <input type="number" name="medium_threshold">
+    </div>
+    <div>
+      <label>Min Voltage (V)</label>
+      <input type="number" step="0.01" name="min_voltage">
+    </div>
+    <div>
+      <label>Max Voltage (V)</label>
+      <input type="number" step="0.01" name="max_voltage">
+    </div>
+    <div>
+      <label>Mode</label>
+      <select name="mode">
+        <option value="test">Test (10 sec)</option>
+        <option value="interval">Interval</option>
+        <option value="daily">Fixed Times</option>
+      </select>
+    </div>
+    <div>
+      <label>Interval Hours</label>
+      <input type="number" step="1" name="interval_hours">
+    </div>
+    <div class="full">
+      <label>Daily Times (e.g. 08:00,12:00,16:00)</label>
+      <input type="text" name="daily_times">
+    </div>
+    <div class="full">
+      <button type="submit">Update Config</button>
+    </div>
+  </form>
+
+  <script>
+    function fetchDataAndRender() {
+      fetch("/data")
+        .then(res => res.json())
+        .then(data => {
+          // Last pump
+          document.getElementById("last-pump").innerText = data.last_pump ?
+            new Date(data.last_pump * 1000).toLocaleString() : "–";
+
+          // Chart
+          const chartData = (data.history || []).map(d => ({
+            time: new Date(d[2] * 1000).toISOString(),
+            moisture: d[0]
+          }));
+          renderChart(chartData);
+
+          // Pump history
+          const ph = document.getElementById("pump-history");
+          ph.innerHTML = "";
+          (data.pump_history || []).slice(-5).reverse().forEach(t => {
+            const row = document.createElement("tr");
+            row.innerHTML = `<td>${new Date(t * 1000).toLocaleString()}</td>`;
+            ph.appendChild(row);
+          });
+
+          // Pre-fill config form
+          const form = document.forms["config-form"];
+          Object.keys(data).forEach(k => {
+            if (form[k]) {
+              if (Array.isArray(data[k])) {
+                form[k].value = data[k].join(",");
+              } else {
+                form[k].value = data[k];
+              }
+            }
+          });
+        })
+        .catch(err => console.error("/data fetch error:", err));
+    }
+
+    function renderChart(chartData) {
+      if (chartData.length === 0) return;
+      vegaEmbed("#chart", {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        data: { values: chartData },
+        mark: { type: "line", point: true },
+        width: "container",
+        encoding: {
+          x: {
+            field: "time",
+            type: "temporal",
+            title: "Time",
+            axis: { format: "%H:%M", labelAngle: -30 }
+          },
+          y: {
+            field: "moisture",
+            type: "quantitative",
+            title: "Moisture (%)",
+            scale: { domain: [0, 100] }
+          }
+        }
+      }, { actions: false });
+    }
+
+    function manualPump() {
+      fetch("/pump", { method: "POST" })
+        .then(() => alert("Pump started."))
+        .catch(() => alert("Pump failed."));
+    }
+
+    document.forms["config-form"].onsubmit = e => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {};
+      for (const el of form.elements) {
+        if (el.name) {
+          if (el.name === "daily_times") {
+            data[el.name] = el.value.split(",").map(s => s.trim());
+          } else if (el.type === "number") {
+            data[el.name] = parseFloat(el.value);
+          } else {
+            data[el.name] = el.value;
+          }
+        }
+      }
+      fetch("/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).then(() => alert("Config updated."));
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchDataAndRender();
+      setInterval(fetchDataAndRender, 10000);
+    });
+  </script>
+</body>
+</html>
