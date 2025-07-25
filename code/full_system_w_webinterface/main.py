@@ -30,6 +30,7 @@ def load_config():
 # === WiFi connection ===
 def connect_wifi():
     import secrets
+    print("connecting to WiFi")
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(secrets.WIFI_SSID, secrets.WIFI_PASSWORD)
@@ -68,10 +69,19 @@ def send_data(percent, voltage):
         headers = {"x-api-key": secrets.API_KEY}
         data = {
             "name": config["name"],
-            "moisture": percent,
-            "voltage": voltage
-        }
-        r = urequests.post(secrets.API_URL + "/measure", headers=headers, json=data)
+            "sensors": {
+                "moisture": {
+                    "value": percent,
+                    "unit": "%"
+                    },
+                "moisture-voltage": {
+                    "value": voltage,
+                    "unit": "V"
+                    }
+                }
+            }
+        r = urequests.post(secrets.API_URL + "/measurements", headers=headers, json=data)
+        print("Status code:", r.status_code)
         r.close()
     except Exception as e:
         print("API error:", e)
@@ -82,6 +92,7 @@ def notify_pump():
         headers = {"x-api-key": secrets.API_KEY}
         data = {"name": config["name"]}
         r = urequests.post(secrets.API_URL + "/pump", headers=headers, json=data)
+        print("Status code:", r.status_code)
         r.close()
     except Exception as e:
         print("Pump notify error:", e)
